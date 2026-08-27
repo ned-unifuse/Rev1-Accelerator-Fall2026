@@ -53,6 +53,11 @@
     font-size: 11px; font-weight: 600; color: #fff;
   }
   .nav-right { display: flex; align-items: center; gap: 16px; font-size: 13px; font-weight: 500; }
+  .nav-right a.tab {
+    color: var(--text-3); text-decoration: none; padding: 4px 8px; border-radius: 6px;
+  }
+  .nav-right a.tab:hover { color: var(--text); background: var(--surface); }
+  .nav-right a.tab.active { color: var(--accent-teal); background: var(--surface); font-weight: 600; }
   .nav-right .user { color: var(--text-3); }
   .nav-right .user b { color: var(--text); font-weight: 600; }
   .nav-right button {
@@ -162,6 +167,24 @@
 
   .empty { padding: 72px 0; text-align: center; color: var(--text-4); font-size: 14px; }
 
+  /* Resources page */
+  .res-section { margin-bottom: 36px; }
+  .res-section h3 {
+    font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-4); margin-bottom: 12px;
+  }
+  .res-list { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .res-item {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+    padding: 13px 16px; border-bottom: 1px solid var(--border-subtle);
+    text-decoration: none;
+  }
+  .res-item:last-child { border-bottom: none; }
+  .res-item:hover { background: #fbfbfa; }
+  .res-item .r-label { font-size: 14px; font-weight: 500; color: var(--accent); letter-spacing: -0.006em; }
+  .res-item:hover .r-label { color: var(--accent-hover); }
+  .res-item .r-note { font-size: 12.5px; color: var(--text-4); text-align: right; }
+
   /* Login */
   .gate-wrap { min-height: calc(100vh - 52px); display: flex; align-items: center; justify-content: center; padding: 48px 24px; }
   .gate {
@@ -211,6 +234,16 @@
     <div class="nav-right" id="nav-user"></div>
   </div>
 </nav>
+<script>
+function navTabs(active){
+  return `<a class="tab ${active==='actions'?'active':''}" href="#" onclick="showView('actions');return false">Action items</a>` +
+         (me ? `<a class="tab ${active==='resources'?'active':''}" href="#" onclick="showView('resources');return false">Resources</a>` : ``);
+}
+function showView(v){
+  if(v==='resources') loadResources(); else load();
+  window.scrollTo(0,0);
+}
+</script>
 
 <div id="app">
   <div class="gate-wrap">
@@ -269,7 +302,7 @@ async function load(){
   const weeks = data.weeks||[];
   const app = document.getElementById("app");
   const nu = document.getElementById("nav-user");
-  nu.innerHTML = `<span class="user">Signed in as <b>${esc(me)}</b></span><button onclick="logout()">Sign out</button>`;
+  nu.innerHTML = navTabs('actions') + `<span class="user">Signed in as <b>${esc(me)}</b></span><button onclick="logout()">Sign out</button>`;
   let mineDone=0, cohortDone=0, total=0;
   app.innerHTML = `<div class="wrap">
     <section class="hero">
@@ -332,6 +365,40 @@ async function load(){
   document.getElementById("s-mine").textContent = mineDone;
   document.getElementById("s-cohort").textContent = cohortDone;
   document.getElementById("s-total").textContent = total;
+}
+
+async function loadResources(){
+  document.getElementById("nav-user").innerHTML = navTabs('resources') + `<span class="user">Signed in as <b>${esc(me)}</b></span><button onclick="logout()">Sign out</button>`;
+  let R = {};
+  try { R = await (await fetch(API+"/resources",{cache:"no-store"})).json(); } catch(e){}
+  const sections = [
+    ["program_links", "Program links"],
+    ["uploads", "Templates & uploads"],
+    ["forms", "Forms & sign-ups"],
+    ["reading", "Reading list"],
+    ["people", "People you've met"],
+  ];
+  const app = document.getElementById("app");
+  app.innerHTML = `<div class="wrap">
+    <section class="hero">
+      <h1>Everything <em>in one place.</em></h1>
+      <p>Box folders, templates, forms, reading, and contacts from the program digests.</p>
+    </section>
+    <main id="resboard" style="padding-top:24px"></main>
+  </div>`;
+  const board = document.getElementById("resboard");
+  let any = false;
+  sections.forEach(([key, title]) => {
+    const items = R[key] || [];
+    if(!items.length) return;
+    any = true;
+    const rows = items.map(it => `<a class="res-item" href="${esc(it.url)}" target="_blank" rel="noopener">
+      <span class="r-label">${esc(it.label)}</span>
+      ${it.note ? `<span class="r-note">${esc(it.note)}</span>` : ''}
+    </a>`).join('');
+    board.insertAdjacentHTML("beforeend", `<div class="res-section"><h3>${title}</h3><div class="res-list">${rows}</div></div>`);
+  });
+  if(!any) board.innerHTML = `<div class="empty">No resources yet.</div>`;
 }
 
 (async()=>{
