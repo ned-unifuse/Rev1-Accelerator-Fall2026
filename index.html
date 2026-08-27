@@ -188,12 +188,11 @@
 
   footer {
     border-top: 1px solid var(--border-subtle);
-    padding: 24px 0 40px; font-size: 12.5px; color: var(--text-4);
-    display: flex; flex-direction: column; align-items: center; text-align: center;
-    gap: 6px; flex-wrap: wrap;
+    padding: 24px 0 40px; font-size: 12.5px; color: var(--text-3);
   }
+  footer .wrap > div { max-width: 100%; word-break: break-word; }
   @media (min-width: 521px) {
-    footer { flex-direction: row; justify-content: space-between; text-align: left; }
+    footer .wrap { flex-direction: row !important; justify-content: space-between; text-align: left; }
   }
   footer a { color: var(--text-3); text-decoration: none; }
   footer a:hover { color: var(--accent); }
@@ -229,8 +228,10 @@
 </div>
 
 <footer>
-  <div>Rev1 Ventures · Customer to Capital Accelerator · Fall 2026</div>
-  <div><a href="https://www.rev1ventures.com/customer-to-capital/" target="_blank" rel="noopener">About the program</a></div>
+  <div class="wrap" style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;flex-wrap:wrap">
+    <div>Rev1 Ventures · Customer to Capital Accelerator · Fall 2026</div>
+    <div><a href="https://www.rev1ventures.com/customer-to-capital/" target="_blank" rel="noopener">About the program</a></div>
+  </div>
 </footer>
 
 <script>
