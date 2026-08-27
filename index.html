@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rev1 C2C Cohort — Action Items</title>
+<style>
+  :root { --teal:#005672; --blue:#179BC8; --green:#7bc144; --dark:#32373c; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"Comic Sans MS","Chalkboard SE","Comic Neue",cursive; background:#f4f7f9; color:var(--dark); padding:24px; max-width:900px; margin:0 auto; }
+  header { background:var(--teal); color:#fff; border-radius:18px; border:3px dashed var(--green); box-shadow:6px 6px 0 var(--blue); padding:20px 24px; margin-bottom:24px; }
+  header h1 { font-size:1.7em; }
+  header p { opacity:.85; margin-top:6px; }
+  .summary-cards { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:24px; }
+  .card { flex:1 1 130px; background:#fff; border:3px solid var(--dark); border-radius:16px; box-shadow:5px 5px 0 rgba(50,55,60,.25); padding:14px 18px; text-align:center; }
+  .card .num { font-size:2em; font-weight:bold; }
+  .card .lbl { font-size:.85em; text-transform:uppercase; letter-spacing:.05em; }
+  #mine .num { color:var(--teal); } #cohort .num { color:var(--blue); }
+  .week { background:#fff; border:3px solid var(--teal); border-radius:18px; box-shadow:6px 6px 0 var(--blue); margin-bottom:22px; overflow:hidden; }
+  .week-head { background:var(--blue); color:#fff; padding:12px 18px; display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; cursor:pointer; user-select:none; }
+  .week-head .left { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+  .week-head h2 { font-size:1.05em; }
+  .week-head .meta { font-size:.75em; opacity:.9; }
+  .chev { font-size:.85em; transition:transform .2s; }
+  .week.collapsed .chev { transform:rotate(-90deg); }
+  .week.collapsed .week-items { display:none; }
+  .item { display:flex; gap:12px; padding:14px 18px; border-bottom:2px dashed #d7e3ea; align-items:flex-start; }
+  .item:last-child { border-bottom:none; }
+  .check { width:26px; height:26px; min-width:26px; border:3px solid var(--dark); border-radius:8px; cursor:pointer; background:#fff; margin-top:2px; position:relative; }
+  .item.mine-done .check { background:var(--green); border-color:var(--green); }
+  .item.mine-done .check::after { content:"✓"; color:#fff; display:flex; align-items:center; justify-content:center; height:100%; font-size:15px; }
+  .item.mine-done .title { text-decoration:line-through; opacity:.55; }
+  .item.locked .check { opacity:.4; cursor:default; }
+  .item-body { flex:1; }
+  .title { font-weight:bold; font-size:1.02em; }
+  .detail { font-size:.88em; margin-top:3px; }
+  .detail a { color:var(--blue); word-break:break-all; }
+  .due { display:inline-block; font-size:.75em; background:var(--green); color:#fff; border-radius:8px; padding:2px 8px; margin-top:6px; }
+  .due.overdue { background:#d9534f; } .due.soon { background:#f0ad4e; color:var(--dark); }
+  .quote { font-size:.78em; color:#6b7a83; margin-top:6px; border-left:3px solid var(--blue); padding-left:8px; font-style:italic; }
+  .badges { margin-top:6px; }
+  .badge { display:inline-block; font-size:.7em; border-radius:8px; padding:2px 8px; margin-right:6px; margin-top:4px; background:#e8f1f5; color:var(--teal); border:1px solid var(--blue); }
+  .badge.me { background:var(--green); color:#fff; border-color:var(--green); }
+  .login-box { background:#fff; border:3px dashed var(--blue); border-radius:18px; padding:28px; max-width:400px; margin:40px auto; }
+  .login-box h2 { color:var(--teal); margin-bottom:14px; }
+  .login-box input, .login-box select { width:100%; padding:10px 12px; margin:8px 0; border:2px solid var(--dark); border-radius:10px; font-family:inherit; font-size:1em; }
+  .login-box button { background:var(--teal); color:#fff; border:none; border-radius:12px; padding:12px 24px; font-family:inherit; font-size:1em; cursor:pointer; margin-top:10px; box-shadow:4px 4px 0 var(--blue); }
+  .login-box button:active { transform:translate(2px,2px); box-shadow:2px 2px 0 var(--blue); }
+  .err { color:#d9534f; font-size:.85em; margin-top:8px; }
+  .who { text-align:right; font-size:.85em; margin-bottom:14px; }
+  .who button { background:none; border:none; color:var(--teal); cursor:pointer; font-family:inherit; text-decoration:underline; font-size:1em; }
+  .empty { text-align:center; padding:60px 20px; background:#fff; border:3px dashed var(--blue); border-radius:18px; color:#8aa0ac; }
+  footer { text-align:center; font-size:.75em; color:#8aa0ac; margin-top:26px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎯 Rev1 C2C — Action Items</h1>
+  <p>Customer to Capital Fall 2026 · cross-cohort board</p>
+</header>
+
+<div id="app"><div class="login-box">
+  <h2>Sign in</h2>
+  <select id="company"></select>
+  <input type="password" id="password" placeholder="Company password">
+  <button onclick="doLogin()">Enter</button>
+  <div class="err" id="login-err"></div>
+</div></div>
+
+<footer>Rev1 Customer to Capital Fall 2026 · items flow from program digests</footer>
+
+<script>
+const API = "https://neds-mac-mini.tail5f6f57.ts.net/api";
+let me = sessionStorage.getItem("rev1-company") || null;
+let token = sessionStorage.getItem("rev1-token") || null;
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmtDate(s){if(!s)return'';const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/);return m?`${m[2]}/${m[3]}/${m[1]}`:String(s);}
+function dueClass(d){if(!d)return'';const m=d.match(/(\d{4})-(\d{2})-(\d{2})/);if(!m)return'';const days=(new Date(+m[1],+m[2]-1,+m[3])-new Date())/864e5;return days<0?'overdue':days<3?'soon':'';}
+function linkify(s){return esc(s).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>');}
+
+async function doLogin(){
+  const company = document.getElementById("company").value;
+  const password = document.getElementById("password").value;
+  const r = await fetch(API+"/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({company,password})});
+  const d = await r.json();
+  if(!r.ok){ document.getElementById("login-err").textContent = d.error||"login failed"; return; }
+  me = d.company; token = d.token;
+  sessionStorage.setItem("rev1-company",me); sessionStorage.setItem("rev1-token",token);
+  load();
+}
+
+function logout(){ sessionStorage.clear(); me=null; token=null; location.reload(); }
+
+async function toggle(id){
+  if(!token) return;
+  const r = await fetch(API+"/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token,item_id:id})});
+  if(r.status===401){ logout(); return; }
+  load();
+}
+
+async function load(){
+  const r = await fetch(API+"/weeks",{cache:"no-store"});
+  const data = await r.json();
+  const weeks = data.weeks||[];
+  const app = document.getElementById("app");
+  let mineDone=0, cohortDone=0, total=0;
+  app.innerHTML = `<div class="who">Signed in as <b>${esc(me)}</b> <button onclick="logout()">log out</button></div>
+  <div class="summary-cards">
+    <div class="card" id="mine"><div class="num">–</div><div class="lbl">My done</div></div>
+    <div class="card" id="cohort"><div class="num">–</div><div class="lbl">Cohort done</div></div>
+  </div>`;
+  const board = document.createElement("div");
+  if(!weeks.length){ board.innerHTML = `<div class="empty">No digests yet.</div>`; }
+  weeks.forEach((w,wi)=>{
+    const div = document.createElement("div"); div.className="week";
+    let itemsHtml = (w.items||[]).map(it=>{
+      total++;
+      const doneBy = it.done_by||[];
+      const mine = doneBy.includes(me);
+      if(mine) mineDone++;
+      if(doneBy.length) cohortDone++;
+      const badges = doneBy.map(c=>`<span class="badge ${c===me?'me':''}">${esc(c)} ✓</span>`).join('');
+      return `<div class="item ${mine?'mine-done':'locked'}" data-id="${esc(it.id)}">
+        <div class="check" title="${mine?'Click to uncheck':'Click to mark done for '+esc(me)}"></div>
+        <div class="item-body">
+          <div class="title">${esc(it.title)}</div>
+          ${it.detail?`<div class="detail">${linkify(it.detail)}</div>`:''}
+          ${it.due?`<span class="due ${dueClass(it.due)}">⏰ ${esc(fmtDate(it.due))}</span>`:''}
+          ${it.source_quote?`<div class="quote">"${esc(it.source_quote)}"</div>`:''}
+          <div class="badges">${badges}</div>
+        </div></div>`;
+    }).join('');
+    const openCount = (w.items||[]).filter(it=>!(it.done_by||[]).includes(me)).length;
+    div.innerHTML = `<div class="week-head"><div class="left"><span class="chev">▼</span><h2>${esc(w.label||w.subject)}</h2></div><span class="meta">${esc(fmtDate(w.date))} · ${openCount} open for me</span></div><div class="week-items">${itemsHtml}</div>`;
+    board.appendChild(div);
+    if(wi < weeks.length-1) div.classList.add("collapsed");
+    div.querySelector(".week-head").addEventListener("click",e=>{if(!e.target.closest(".check"))div.classList.toggle("collapsed");});
+    div.querySelectorAll(".item .check").forEach(chk=>{
+      chk.addEventListener("click",()=>toggle(chk.closest(".item").dataset.id));
+    });
+  });
+  app.appendChild(board);
+  document.querySelector("#mine .num").textContent = mineDone;
+  document.querySelector("#cohort .num").textContent = cohortDone + "/" + total;
+}
+
+(async()=>{
+  // populate company dropdown from weeks payload (companies list endpoint not public;
+  // free-text select fallback handled by manual option)
+  const sel = document.getElementById("company");
+  const r = await fetch(API+"/weeks"); const d = await r.json();
+  const names = new Set();
+  (d.weeks||[]).forEach(w=>(w.items||[]).forEach(it=>(it.done_by||[]).forEach(c=>names.add(c))));
+  ["Unifuse AI", ...names].forEach(n=>{ const o=document.createElement("option"); o.textContent=n; sel.appendChild(o); });
+  sel.insertAdjacentHTML("beforeend","<option>Other…</option>");
+  sel.addEventListener("change",()=>{ if(sel.value==="Other…"){ const v=prompt("Company name:"); if(v){ const o=document.createElement("option"); o.textContent=v; sel.appendChild(o); o.selected=true; } } });
+  if(me && token) load();
+})();
+</script>
+</body>
+</html>
