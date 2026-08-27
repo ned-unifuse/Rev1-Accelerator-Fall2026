@@ -318,7 +318,8 @@ async function load(){
         <tbody>${rows}</tbody>
       </table></div>`;
     board.appendChild(div);
-    div.querySelector(".week-head h2").addEventListener("click",()=>{
+    div.querySelector(".week-head").addEventListener("click",e=>{
+      if(e.target.closest(".check")) return;
       expanded[key] = !expanded[key];
       div.classList.toggle("collapsed");
     });
