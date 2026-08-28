@@ -171,6 +171,26 @@
 
   .empty { padding: 72px 0; text-align: center; color: var(--text-4); font-size: 14px; }
 
+  /* Dashboard */
+  .dash-grid { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr); gap: 20px; align-items: start; }
+  .dash-side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .dash-card { border: 1px solid var(--border); border-radius: 10px; background: var(--bg); overflow: hidden; }
+  .dash-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); background: var(--panel); }
+  .dash-head h2 { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+  .dash-more { font-size: 12px; color: var(--accent); text-decoration: none; white-space: nowrap; }
+  .dash-more:hover { color: var(--accent-hover); }
+  .dash-progress { height: 6px; background: var(--surface); border-radius: 3px; margin: 14px 16px 4px; overflow: hidden; }
+  .dash-progress-fill { height: 100%; background: var(--ok); border-radius: 3px; transition: width .25s ease; }
+  .dash-progress-lbl { font-size: 12px; color: var(--text-4); margin: 0 16px 8px; }
+  .dash-tbl td { padding: 10px 16px; }
+  .dash-alldone { padding: 28px 16px; text-align: center; font-size: 14px; color: var(--ok); background: var(--ok-bg); }
+  .dash-done-hdr { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-4); padding: 12px 16px 0; }
+  .dash-nextmeta { font-size: 12.5px; color: var(--text-3); padding: 12px 16px 0; }
+  .dash-moreitems { font-size: 12.5px; color: var(--text-3); padding: 10px 16px; border-top: 1px solid var(--border-subtle); }
+  .dash-moreitems a { color: var(--accent); }
+  .dash-card .res-item { border-radius: 0; border-left: none; border-right: none; border-top: none; }
+  @media (max-width: 760px) { .dash-grid { grid-template-columns: 1fr; } }
+
   /* Resources page */
   .res-section { margin-bottom: 36px; }
   .res-section h3 {
@@ -284,14 +304,16 @@
 </nav>
 <script>
 function navTabs(active){
-  return `<a class="tab ${active==='actions'?'active':''}" href="#" onclick="showView('actions');return false">Action items</a>` +
+  return `<a class="tab ${active==='dashboard'?'active':''}" href="#" onclick="showView('dashboard');return false">Dashboard</a>` +
+         `<a class="tab ${active==='actions'?'active':''}" href="#" onclick="showView('actions');return false">Action items</a>` +
          (me ? `<a class="tab ${active==='resources'?'active':''}" href="#" onclick="showView('resources');return false">Resources</a>` : ``) +
          (me ? `<a class="tab cta" href="#" onclick="showView('feedback');return false">Submit a bug or feature request</a>` : ``);
 }
 function showView(v){
   if(v==='resources') loadResources();
   else if(v==='feedback') loadFeedback();
-  else load();
+  else if(v==='actions') load();
+  else loadDashboard();
   window.scrollTo(0,0);
 }
 </script>
@@ -355,14 +377,125 @@ async function doLogin(){
   if(!r.ok){ document.getElementById("login-err").textContent = d.error||"Login failed"; return; }
   me = d.company; token = d.token;
   sessionStorage.setItem("rev1-company",me); sessionStorage.setItem("rev1-token",token);
-  load();
+  loadDashboard();
 }
 function logout(){ sessionStorage.clear(); me=null; token=null; location.reload(); }
 async function toggle(id){
   if(!token) return;
   const r = await fetch(API+"/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token,item_id:id})});
   if(r.status===401){ logout(); return; }
-  load();
+  const a = document.getElementById("app");
+  if(a.dataset.view === 'dashboard'){ loadDashboard(); } else { load(); }
+}
+
+async function loadDashboard(){
+  // Fetch data (signed-in personal state preferred)
+  let data = null, R = null;
+  if (token) {
+    try {
+      const r = await fetch(API+"/weeks-mine",{cache:"no-store",headers:{"Authorization":"Bearer "+token}});
+      if(r.ok) data = await r.json(); else { logout(); return; }
+    } catch(e){}
+  }
+  if(!data){
+    try { data = await (await fetch(API+"/weeks",{cache:"no-store"})).json(); } catch(e){}
+  }
+  try { R = await (await fetch(API+"/resources",{cache:"no-store"})).json(); } catch(e){}
+  const weeks = (data && data.weeks) || [];
+  const app = document.getElementById("app");
+  app.dataset.view = 'dashboard';
+  document.getElementById("nav-user").innerHTML = navTabs('dashboard') + `<span class="user">Signed in as <b>${esc(me)}</b></span><button onclick="logout()">Sign out</button>`;
+  if(!weeks.length){
+    app.innerHTML = `<div class="wrap"><div class="empty">No digests processed yet.</div></div>`;
+    return;
+  }
+  const latest = weeks[weeks.length-1];
+  const prev = weeks.length>1 ? weeks[weeks.length-2] : null;
+
+  // latest week: split open vs done
+  const items = latest.items || [];
+  const open = items.filter(it=>!(token ? !!it.done : false));
+  const done = items.filter(it=>token ? !!it.done : false);
+  const pct = items.length ? Math.round(done.length/items.length*100) : 0;
+
+  // key resources: pick curated labels first, then fill from categories
+  const curLabels = ["Program Box Folder (all participant files)","Nexudus","Milestone","Onboarding"];
+  const pool = [];
+  ["program_links","uploads","forms"].forEach(k=>{ if(R && R[k]) pool.push(...R[k].map((it,i)=>({...it,_cat:k}))); });
+  const picked = [], seen = new Set();
+  curLabels.forEach(cl=>{
+    const hit = pool.find(it=>it.label && it.label.toLowerCase().includes(cl.toLowerCase()) && !seen.has(it.label));
+    if(hit){ picked.push(hit); seen.add(hit.label); }
+  });
+  pool.forEach(it=>{ if(picked.length<4 && !seen.has(it.label)){ picked.push(it); seen.add(it.label); } });
+
+  // upcoming: open items across all weeks with a future due date
+  const today = new Date(); today.setHours(0,0,0,0);
+  const allItems = weeks.flatMap(w=>(w.items||[]).map(it=>({...it, _wk: w.label||w.subject})));
+  const upcoming = allItems.filter(it=>{
+    if(token && it.done) return false;
+    const m = String(it.due||'').match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return false;
+    return new Date(+m[1],+m[2]-1,+m[3]) > today;
+  }).sort((a,b)=>String(a.due).localeCompare(String(b.due)));
+
+  const rowIt = it => `<tr class="${token && it.done ? 'mine-done':''}" data-id="${esc(it.id)}">
+      <td class="c-check"><div class="check" role="checkbox" aria-checked="${token && !!it.done}" tabindex="0"></div></td>
+      <td class="c-item">
+        <div class="title">${esc(it.title)}</div>
+        ${it.due?`<span class="due ${dueClass(it.due)}" style="display:block;margin-top:4px">${esc(fmtDate(it.due))}</span>`:''}
+      </td>
+    </tr>`;
+
+  app.innerHTML = `<div class="wrap">
+    <section class="hero" style="padding-bottom:20px">
+      <h1>Your week at a <em>glance.</em></h1>
+      <p>${esc(latest.label || latest.subject || 'Latest digest')} · ${esc(fmtDate(latest.date))}</p>
+    </section>
+    <div class="stats">
+      <div class="stat"><span class="num ok">${done.length}</span><span class="lbl">done this week</span></div>
+      <div class="stat"><span class="num">${open.length}</span><span class="lbl">still open</span></div>
+      <div class="stat"><span class="num">${items.length}</span><span class="lbl">total this week</span></div>
+    </div>
+    <main>
+      <div class="dash-grid">
+        <section class="dash-card">
+          <div class="dash-head"><h2>This week's action items</h2>
+            <a href="#" onclick="showView('actions');return false" class="dash-more">All items →</a></div>
+          <div class="dash-progress"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+          <div class="dash-progress-lbl">${pct}% complete</div>
+          ${open.length ? `<table class="items dash-tbl"><tbody>${open.map(rowIt).join('')}</tbody></table>`
+            : `<div class="dash-alldone">🎉 All clear - everything done this week.</div>`}
+          ${done.length ? `<div class="dash-done-hdr">${done.length} done</div>
+            <table class="items dash-tbl"><tbody>${done.map(rowIt).join('')}</tbody></table>` : ''}
+        </section>
+        <div class="dash-side">
+          <section class="dash-card">
+            <div class="dash-head"><h2>Key resources</h2>
+              <a href="#" onclick="showView('resources');return false" class="dash-more">All →</a></div>
+            <div class="res-list" style="border:none;border-radius:0">
+              ${picked.length ? picked.map(it=>`<a class="res-item" href="${esc(it.url)}" target="_blank" rel="noopener">
+                <span class="res-body"><span class="r-label">${esc(it.label)}</span>
+                ${it.note?`<span class="r-note">${esc(it.note)}</span>`:''}</span>
+                <span class="r-open">Open →</span></a>`).join('') : '<div class="empty" style="padding:24px 0">No resources yet.</div>'}
+            </div>
+          </section>
+          <section class="dash-card">
+            <div class="dash-head"><h2>Coming up</h2></div>
+            ${upcoming.length
+              ? `<table class="items dash-tbl"><tbody>${upcoming.slice(0,5).map(rowIt).join('')}</tbody></table>
+                 ${upcoming.length>5?`<div class="dash-moreitems">+ ${upcoming.length-5} more — <a href="#" onclick="showView('actions');return false">see all action items</a></div>`:''}`
+              : `<div class="empty" style="padding:24px 0">Nothing on the horizon yet - next digest lands after the next session.</div>`}
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>`;
+  // wire check toggles (dash rows -> full reload of view)
+  app.querySelectorAll("tr[data-id] .check").forEach(chk=>{
+    const go = e=>{ e.stopPropagation(); toggle(chk.closest("tr").dataset.id); };
+    chk.addEventListener("click",go);
+    chk.addEventListener("keydown",e=>{ if(e.key===" "||e.key==="Enter"){e.preventDefault();go(e);} });
+  });
 }
 
 async function load(){
@@ -567,7 +700,7 @@ async function submitFeedback(){
   sel.insertAdjacentHTML("beforeend","<option>Other…</option>");
   sel.addEventListener("change",()=>{ if(sel.value==="Other…"){ const v=prompt("Company name:"); if(v){ const o=document.createElement("option"); o.textContent=v; sel.appendChild(o); o.selected=true; } } });
   sel.value = me || sel.value;
-  if(me && token) load();
+  if(me && token) loadDashboard();
 })();
 </script>
 </body>
