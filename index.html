@@ -581,9 +581,9 @@ async function loadDashboard(){
                 const d = new Date(+m[1],+m[2]-1,+m[3]);
                 const days = Math.round((d - new Date().setHours(0,0,0,0))/864e5);
                 const when = days===0 ? 'today' : days===1 ? 'tomorrow' : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+fmtDate(it.due).slice(0,5);
-                const doneCls = (token && it.done) ? ' done' : '';
-                return `<div class="dash-dl-row${doneCls}">
-                  <span class="dash-dl-when ${days<=1 && !(token && it.done)?'urgent':''}">${when}</span>
+                const doneAny = !!(it.done_count !== undefined ? it.done_count>0 : it.done);
+                return `<div class="dash-dl-row${doneAny?' done':''}">
+                  <span class="dash-dl-when ${days<=1 && !doneAny ?'urgent':''}">${when}</span>
                   <span class="dash-dl-what">${esc(it.title)}</span>
                 </div>`;}).join('')}</div>`;
             })()}
