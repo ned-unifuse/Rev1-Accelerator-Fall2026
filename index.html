@@ -46,6 +46,7 @@
   }
   nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 52px; }
   .brand { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+  .brand .brand-logo { height: 26px; width: auto; display: block; }
   .brand .mark {
     width: 20px; height: 20px; border-radius: 5px;
     background: linear-gradient(135deg, var(--accent-teal), var(--accent));
@@ -277,7 +278,7 @@
 
 <nav>
   <div class="wrap">
-    <div class="brand"><span class="mark">R1</span> Customer to Capital</div>
+    <div class="brand"><img class="brand-logo" src="rev1-logo.png" alt="Rev1 Ventures" onerror="this.style.display='none'"> Customer to Capital</div>
     <div class="nav-right" id="nav-user"></div>
   </div>
 </nav>
