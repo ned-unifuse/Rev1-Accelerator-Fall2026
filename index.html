@@ -210,6 +210,11 @@
   .dash-seg button:hover { color: var(--text); }
   .dash-seg button.on { background: #fff; color: var(--ok); font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--ok); }
   .dash-wk { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-4); margin-bottom: 2px; }
+  .dash-dl-row { display: flex; align-items: baseline; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border-subtle); }
+  .dash-dl-row:last-child { border-bottom: none; }
+  .dash-dl-when { flex: 0 0 92px; font-size: 12px; font-weight: 600; color: var(--text-2); }
+  .dash-dl-when.urgent { color: var(--alert); }
+  .dash-dl-what { font-size: 13.5px; color: var(--text); letter-spacing: -0.005em; }
 
   /* Resources page */
   .res-section { margin-bottom: 14px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
@@ -479,6 +484,13 @@ async function loadDashboard(){
 
   window._dashScope = window._dashScope || "week"; // week | open | all
   const getScope = () => window._dashScope;
+  function latestWeekWindow(){
+    // calendar week (Sun-Sat) containing today
+    const now = new Date(); now.setHours(0,0,0,0);
+    const start = new Date(now); start.setDate(now.getDate() - now.getDay());
+    const end = new Date(start); end.setDate(start.getDate() + 6); end.setHours(23,59,59,999);
+    return { start, end };
+  }
   const rowIt = (it, withWeek) => `<tr class="${token && it.done ? 'mine-done':''}" data-id="${esc(it.id)}">
       <td class="c-check"><div class="check" role="checkbox" aria-checked="${token && !!it.done}" tabindex="0"></div></td>
       <td class="c-item">
@@ -549,6 +561,28 @@ async function loadDashboard(){
           <table class="items dash-tbl"><tbody id="dash-list">${dashList() || `<tr><td class="c-item"><div class="empty" style="padding:24px 0">Nothing here - all clear.</div></td></tr>`}</tbody></table>
         </section>
         <div class="dash-side">
+          <section class="dash-card">
+            <div class="dash-head"><h2>Deadlines this week</h2></div>
+            ${(()=>{
+              const wk = latestWeekWindow();
+              const dl = allItems.filter(it=>{
+                if(token && it.done) return false;
+                const m = String(it.due||'').match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return false;
+                const d = new Date(+m[1],+m[2]-1,+m[3]);
+                return d >= wk.start && d <= wk.end;
+              }).sort((a,b)=>String(a.due).localeCompare(String(b.due)));
+              if(!dl.length) return `<div class="empty" style="padding:24px 0">No deadlines this week - clear skies.</div>`;
+              return `<div class="dash-dl">${dl.map(it=>{
+                const m = String(it.due).match(/(\d{4})-(\d{2})-(\d{2})/);
+                const d = new Date(+m[1],+m[2]-1,+m[3]);
+                const days = Math.round((d - new Date().setHours(0,0,0,0))/864e5);
+                const when = days===0 ? 'today' : days===1 ? 'tomorrow' : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+fmtDate(it.due).slice(0,5);
+                return `<div class="dash-dl-row">
+                  <span class="dash-dl-when ${days<=1?'urgent':''}">${when}</span>
+                  <span class="dash-dl-what">${esc(it.title)}</span>
+                </div>`;}).join('')}</div>`;
+            })()}
+          </section>
           <section class="dash-card">
             <div class="dash-head"><h2>Key resources</h2>
               <a href="#" onclick="showView('resources');return false" class="dash-more">All →</a></div>
