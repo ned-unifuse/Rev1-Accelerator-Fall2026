@@ -191,6 +191,13 @@
   .dash-moreitems a { color: var(--accent); }
   .dash-card .res-item { border-radius: 0; border-left: none; border-right: none; border-top: none; }
   @media (max-width: 760px) { .dash-grid { grid-template-columns: 1fr; } }
+  .dash-seg { display: inline-flex; gap: 2px; background: var(--surface); border-radius: 6px; padding: 2px; }
+  .dash-seg button {
+    border: none; background: none; font: inherit; font-size: 12px; font-weight: 500;
+    color: var(--text-3); padding: 4px 10px; border-radius: 5px; cursor: pointer; white-space: nowrap;
+  }
+  .dash-seg button:hover { color: var(--text); }
+  .dash-seg button.on { background: #fff; color: var(--ok); font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--ok); }
 
   /* Resources page */
   .res-section { margin-bottom: 14px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
@@ -452,6 +459,7 @@ async function loadDashboard(){
     return new Date(+m[1],+m[2]-1,+m[3]) > today;
   }).sort((a,b)=>String(a.due).localeCompare(String(b.due)));
 
+  const dashScope = (window._dashScope = window._dashScope || "week"); // week | open | all
   const rowIt = it => `<tr class="${token && it.done ? 'mine-done':''}" data-id="${esc(it.id)}">
       <td class="c-check"><div class="check" role="checkbox" aria-checked="${token && !!it.done}" tabindex="0"></div></td>
       <td class="c-item">
@@ -460,27 +468,59 @@ async function loadDashboard(){
       </td>
     </tr>`;
 
+  function dashList(){
+    if(dashScope==="week") return items.map(rowIt).join('');
+    if(dashScope==="open") return allItems.filter(it=>!(token&&it.done)).map(rowIt).join('');
+    return allItems.map(rowIt).join('');
+  }
+  function dashScopeStats(){
+    let list = items, doneN = done.length;
+    if(dashScope==="open"){ list = allItems.filter(it=>!(token&&it.done)); doneN = 0; }
+    if(dashScope==="all"){ list = allItems; doneN = allItems.filter(it=>token&&it.done).length; }
+    const openN = list.length - doneN;
+    const pct = list.length ? Math.round(doneN/list.length*100) : 0;
+    return {total:list.length, done:doneN, open:openN, pct};
+  }
+  function renderDashList(){
+    const st = dashScopeStats();
+    const tbl = document.getElementById("dash-list");
+    if(tbl) tbl.innerHTML = dashList() || `<tr><td class="c-item"><div class="empty" style="padding:24px 0">Nothing here - all clear.</div></td></tr>`;
+    const fill = document.querySelector(".dash-progress-fill"); if(fill) fill.style.width = st.pct+"%";
+    const lbl = document.getElementById("dash-pct"); if(lbl) lbl.textContent = st.pct+"% complete";
+    document.getElementById("s-done").textContent = st.done;
+    document.getElementById("s-open").textContent = st.open;
+    document.getElementById("s-total").textContent = st.total;
+  }
+
+  const segBtns = `<div class="dash-seg" role="tablist">
+    ${[["week","This week"],["open","All open"],["all","Everything"]].map(([k,l])=>
+      `<button role="tab" aria-selected="${dashScope===k}" class="${dashScope===k?'on':''}" onclick="setDashScope('${k}')">${l}</button>`).join('')}
+  </div>`;
+  window.setDashScope = k => {
+    window._dashScope = k;
+    document.querySelectorAll(".dash-seg button").forEach(b=>b.classList.toggle("on", b.textContent===(k==="week"?"This week":k==="open"?"All open":"Everything")));
+    document.querySelectorAll(".dash-seg button").forEach(b=>b.setAttribute("aria-selected", b.classList.contains("on")));
+    renderDashList();
+  };
+
+  const st0 = dashScopeStats();
   app.innerHTML = `<div class="wrap">
     <section class="hero" style="padding-bottom:20px">
       <h1>Your week at a <em>glance.</em></h1>
       <p>${esc(latest.label || latest.subject || 'Latest digest')} · ${esc(fmtDate(latest.date))}</p>
     </section>
     <div class="stats">
-      <div class="stat"><span class="num ok">${done.length}</span><span class="lbl">done this week</span></div>
-      <div class="stat"><span class="num">${open.length}</span><span class="lbl">still open</span></div>
-      <div class="stat"><span class="num">${items.length}</span><span class="lbl">total this week</span></div>
+      <div class="stat"><span class="num ok" id="s-done">${st0.done}</span><span class="lbl">done</span></div>
+      <div class="stat"><span class="num" id="s-open">${st0.open}</span><span class="lbl">still open</span></div>
+      <div class="stat"><span class="num" id="s-total">${st0.total}</span><span class="lbl">total</span></div>
     </div>
     <main>
       <div class="dash-grid">
         <section class="dash-card">
-          <div class="dash-head"><h2>This week's action items</h2>
-            <a href="#" onclick="showView('actions');return false" class="dash-more">All items →</a></div>
-          <div class="dash-progress"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
-          <div class="dash-progress-lbl">${pct}% complete</div>
-          ${open.length ? `<table class="items dash-tbl"><tbody>${open.map(rowIt).join('')}</tbody></table>`
-            : `<div class="dash-alldone">🎉 All clear - everything done this week.</div>`}
-          ${done.length ? `<div class="dash-done-hdr">${done.length} done</div>
-            <table class="items dash-tbl"><tbody>${done.map(rowIt).join('')}</tbody></table>` : ''}
+          <div class="dash-head"><h2>Action items</h2>${segBtns}</div>
+          <div class="dash-progress"><div class="dash-progress-fill" style="width:${st0.pct}%"></div></div>
+          <div class="dash-progress-lbl" id="dash-pct">${st0.pct}% complete</div>
+          <table class="items dash-tbl"><tbody id="dash-list">${dashList() || `<tr><td class="c-item"><div class="empty" style="padding:24px 0">Nothing here - all clear.</div></td></tr>`}</tbody></table>
         </section>
         <div class="dash-side">
           <section class="dash-card">
