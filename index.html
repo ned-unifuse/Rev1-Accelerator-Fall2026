@@ -178,10 +178,16 @@
   }
   .res-list { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
   .res-item {
-    display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
     padding: 13px 16px; border-bottom: 1px solid var(--border-subtle);
     text-decoration: none;
   }
+  .res-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .res-body .r-src { font-size: 12px; color: var(--text-4); font-style: italic; }
+  .res-body .r-src::before { content: "Source: "; }
+  .res-body .r-url { font-size: 11.5px; color: var(--accent); word-break: break-all; opacity: .75; }
+  .r-open { font-size: 12px; color: var(--text-4); white-space: nowrap; }
+  .res-item:hover .r-open { color: var(--accent); }
   .res-item:last-child { border-bottom: none; }
   .res-item:hover { background: #fbfbfa; }
   .res-item .r-label { font-size: 14px; font-weight: 500; color: var(--accent); letter-spacing: -0.006em; }
@@ -317,6 +323,7 @@ let me = sessionStorage.getItem("rev1-company") || null;
 let token = sessionStorage.getItem("rev1-token") || null;
 const expanded = {};
 
+function cleanSource(src){ return String(src??"").replace(/^Email:\s*"?(Fwd:\s*)?/i, 'Email: "').replace(/\s*"/g, m=>m); }
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function fmtDate(s){if(!s)return'';const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/);return m?`${m[2]}/${m[3]}/${m[1]}`:String(s);}
 function dueClass(d){if(!d)return'';const m=d.match(/(\d{4})-(\d{2})-(\d{2})/);if(!m)return'';const days=(new Date(+m[1],+m[2]-1,+m[3])-new Date())/864e5;return days<0?'overdue':days<3?'soon':'';}
@@ -437,8 +444,13 @@ async function loadResources(){
     if(!items.length) return;
     any = true;
     const rows = items.map(it => `<a class="res-item" href="${esc(it.url)}" target="_blank" rel="noopener">
-      <span class="r-label">${esc(it.label)}</span>
-      <span class="r-note">${esc([it.note, it.source].filter(Boolean).join(' · '))}</span>
+      <span class="res-body">
+        <span class="r-label">${esc(it.label)}</span>
+        ${it.note ? `<span class="r-note">${esc(it.note)}</span>` : ''}
+        ${it.source ? `<span class="r-src">${esc(cleanSource(it.source))}</span>` : ''}
+        <span class="r-url">${esc(it.url)}</span>
+      </span>
+      <span class="r-open">Open &rarr;</span>
     </a>`).join('');
     board.insertAdjacentHTML("beforeend", `<div class="res-section"><h3>${title}</h3><div class="res-list">${rows}</div></div>`);
   });
