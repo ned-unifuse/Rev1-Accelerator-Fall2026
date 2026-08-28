@@ -161,14 +161,12 @@
   td.c-item .detail a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(0,116,157,0.25); word-break: break-word; }
   td.c-item .detail a:hover { color: var(--accent-hover); }
   td.c-item .quote { font-size: 12.5px; color: var(--text-4); margin-top: 6px; }
+  td.c-item .src { font-size: 12px; color: var(--text-4); margin-top: 3px; font-style: italic; }
+  td.c-item .src::before { content: "Source: "; font-style: italic; }
   td.c-due { width: 110px; }
   .due { font-size: 13px; font-weight: 500; color: var(--text-3); white-space: nowrap; }
   .due.soon { color: var(--warn); }
   .due.overdue { color: var(--alert); font-weight: 600; }
-  td.c-done { width: 170px; }
-  .doneby { font-size: 12.5px; color: var(--text-3); line-height: 1.7; }
-  .doneby .co { color: var(--accent-teal); font-weight: 500; }
-  .doneby .co.me { color: var(--ok); font-weight: 600; }
 
   .empty { padding: 72px 0; text-align: center; color: var(--text-4); font-size: 14px; }
 
@@ -263,8 +261,8 @@
   footer a { color: var(--text-3); text-decoration: none; }
   footer a:hover { color: var(--accent); }
   @media (max-width: 640px) {
-    td.c-due, th.h-due, td.c-done, th.h-done { display: none; }
-    .due, .doneby { display: block; margin-top: 6px; }
+    td.c-due, th.h-due { display: none; }
+    .due { display: block; margin-top: 6px; }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -343,21 +341,21 @@ async function toggle(id){
 }
 
 async function load(){
-  const r = await fetch(API+"/weeks",{cache:"no-store"});
+  const r = await fetch(API+"/weeks-mine",{cache:"no-store",headers:token?{"Authorization":"Bearer "+token}:{}}).catch(()=>null)
+           || await fetch(API+"/weeks",{cache:"no-store"});
   const data = await r.json();
   const weeks = data.weeks||[];
   const app = document.getElementById("app");
   const nu = document.getElementById("nav-user");
   nu.innerHTML = navTabs('actions') + `<span class="user">Signed in as <b>${esc(me)}</b></span><button onclick="logout()">Sign out</button>`;
-  let mineDone=0, cohortDone=0, total=0;
+  let mineDone=0, total=0;
   app.innerHTML = `<div class="wrap">
     <section class="hero">
       <h1>Action items, <em>tracked together.</em></h1>
-      <p>Every to-do from the program digests, checked off company by company across the Fall 2026 cohort.</p>
+      <p>Every to-do from the program digests, tracked for your company.</p>
     </section>
     <div class="stats">
       <div class="stat"><span class="num ok" id="s-mine">0</span><span class="lbl">done by ${esc(me)}</span></div>
-      <div class="stat"><span class="num" id="s-cohort">0</span><span class="lbl">done across cohort</span></div>
       <div class="stat"><span class="num" id="s-total">0</span><span class="lbl">total items</span></div>
     </div>
     <main id="board"></main>
@@ -371,29 +369,25 @@ async function load(){
     const div = document.createElement("div"); div.className = "week" + (isOpen ? "" : " collapsed");
     let rows = (w.items||[]).map(it=>{
       total++;
-      const doneBy = it.done_by||[];
-      const mine = doneBy.includes(me);
+      const mine = token ? !!it.done : false;
       if(mine) mineDone++;
-      if(doneBy.length) cohortDone++;
-      const donebyHtml = doneBy.length
-        ? doneBy.map(c=>`<span class="co ${c===me?'me':''}">${esc(c)}</span>`).join('<br>') : '<span style="color:var(--text-4)">—</span>';
       return `<tr class="${mine?'mine-done':''}" data-id="${esc(it.id)}">
         <td class="c-check"><div class="check" role="checkbox" aria-checked="${mine}" tabindex="0" title="${mine?'Mark not done':'Mark done for '+esc(me)}"></div></td>
         <td class="c-item">
           <div class="title">${esc(it.title)}</div>
           ${it.detail?`<div class="detail">${linkify(it.detail)}</div>`:''}
           ${it.source_quote?`<div class="quote">"${esc(it.source_quote)}"</div>`:''}
+          ${it.source?`<div class="src">${esc(it.source)}</div>`:''}
           <span class="due ${dueClass(it.due)}" style="display:none">${esc(fmtDate(it.due))}</span>
         </td>
         <td class="c-due">${it.due?`<span class="due ${dueClass(it.due)}">${esc(fmtDate(it.due))}</span>`:'—'}</td>
-        <td class="c-done"><div class="doneby">${donebyHtml}</div></td>
       </tr>`;
     }).join('');
-    const openCount = (w.items||[]).filter(it=>!(it.done_by||[]).includes(me)).length;
+    const openCount = (w.items||[]).filter(it=>!(token ? !!it.done : false)).length;
     div.innerHTML = `
       <div class="week-head"><h2><span class="chev">▼</span>${esc(key)}</h2><span class="meta">${esc(fmtDate(w.date))} · <b>${openCount}</b> open for you</span></div>
       <div class="tbl-wrap"><table class="items">
-        <thead><tr><th class="c-check" style="width:44px"></th><th>Item</th><th class="h-due">Due</th><th class="h-done">Done by</th></tr></thead>
+        <thead><tr><th class="c-check" style="width:44px"></th><th>Item</th><th class="h-due">Due</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
     board.appendChild(div);
@@ -409,7 +403,6 @@ async function load(){
     });
   });
   document.getElementById("s-mine").textContent = mineDone;
-  document.getElementById("s-cohort").textContent = cohortDone;
   document.getElementById("s-total").textContent = total;
 }
 
@@ -440,7 +433,7 @@ async function loadResources(){
     any = true;
     const rows = items.map(it => `<a class="res-item" href="${esc(it.url)}" target="_blank" rel="noopener">
       <span class="r-label">${esc(it.label)}</span>
-      ${it.note ? `<span class="r-note">${esc(it.note)}</span>` : ''}
+      <span class="r-note">${esc([it.note, it.source].filter(Boolean).join(' · '))}</span>
     </a>`).join('');
     board.insertAdjacentHTML("beforeend", `<div class="res-section"><h3>${title}</h3><div class="res-list">${rows}</div></div>`);
   });
@@ -531,10 +524,7 @@ async function submitFeedback(){
   } catch(e){}
   if (!names.length) {
     try {
-      const r = await fetch(API+"/weeks"); const d = await r.json();
-      const s = new Set(["Unifuse AI"]);
-      (d.weeks||[]).forEach(w=>(w.items||[]).forEach(it=>(it.done_by||[]).forEach(c=>s.add(c))));
-      names = [...s];
+      names = ["Unifuse AI"];
     } catch(e){ names = ["Unifuse AI"]; }
   }
   names.sort((a,b)=>a.localeCompare(b));
