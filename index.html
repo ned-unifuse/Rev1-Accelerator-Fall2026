@@ -84,11 +84,20 @@
 
   /* Stat strip */
   .stats {
-    display: flex; gap: 40px; flex-wrap: wrap;
+    display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
     border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);
-    padding: 16px 0; margin-bottom: 28px;
+    padding: 14px 0; margin-bottom: 28px;
   }
-  .stat { display: flex; align-items: baseline; gap: 8px; }
+  .stat {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 8px 14px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--panel);
+    transition: border-color .12s, background .12s, box-shadow .12s;
+  }
+  .stat.clickable { cursor: pointer; }
+  .stat.clickable:hover { border-color: var(--ok); box-shadow: inset 0 0 0 1.5px var(--ok); background: #fff; }
+  .stat.filtered { border-color: var(--ok); box-shadow: inset 0 0 0 1.5px var(--ok); background: #fff; }
+  .stat.filtered .lbl { color: var(--ok); font-weight: 600; }
   .stat .num { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
   .stat .num.ok { color: var(--ok); }
   .stat .lbl { font-size: 13px; color: var(--text-4); }
@@ -581,27 +590,34 @@ async function load(){
   const nu = document.getElementById("nav-user");
   nu.innerHTML = navTabs('actions') + `<span class="user">Signed in as <b>${esc(me)}</b></span><button onclick="logout()">Sign out</button>`;
   let mineDone=0, total=0, mineOpen=0;
-  const openFilter = { on: false };
-  window.toggleOpenFilter = () => {
-    openFilter.on = !openFilter.on;
-    document.getElementById("s-openlbl").textContent = openFilter.on ? "open items (filtered)" : "open items";
-    const chip = document.getElementById("show-all-chip");
-    if(chip) chip.style.display = openFilter.on ? "inline-flex" : "none";
+  const openFilter = { mode: "all" }; // all | open | done
+  function applyRowFilter(){
     document.querySelectorAll(".week").forEach(div=>{
       div.querySelectorAll("tbody tr").forEach(tr=>{
-        tr.style.display = (openFilter.on && tr.classList.contains("mine-done")) ? "none" : "";
+        const isDone = tr.classList.contains("mine-done");
+        const show = openFilter.mode==="all" || (openFilter.mode==="open" ? !isDone : isDone);
+        tr.style.display = show ? "" : "none";
       });
     });
-  };
+    const set = (id,on)=>{ const el=document.getElementById(id); if(el) el.classList.toggle("filtered", on); };
+    set("stat-done", openFilter.mode==="done");
+    set("stat-open", openFilter.mode==="open");
+    const chip = document.getElementById("show-all-chip");
+    if(chip) chip.style.display = openFilter.mode==="all" ? "none" : "inline-flex";
+    const lbl = document.getElementById("s-openlbl");
+    if(lbl) lbl.textContent = openFilter.mode==="open" ? "open items (filtered)" : "open items";
+  }
+  window.toggleOpenFilter = () => { openFilter.mode = openFilter.mode==="open" ? "all" : "open"; applyRowFilter(); };
+  window.filterStat = m => { openFilter.mode = openFilter.mode===m ? "all" : m; applyRowFilter(); };
   app.innerHTML = `<div class="wrap">
     <section class="hero">
       <h1>Action items, <em>tracked together.</em></h1>
       <p>Every to-do from the program digests, tracked for your company.</p>
     </section>
     <div class="stats">
-      <div class="stat"><span class="num ok" id="s-mine">0</span><span class="lbl">done by ${esc(me)}</span></div>
-      <div class="stat" style="cursor:pointer" onclick="toggleOpenFilter()" title="Click to show only open items"><span class="num" id="s-open">0</span><span class="lbl" id="s-openlbl">open items</span></div>
-      <div class="stat"><span class="num" id="s-total">0</span><span class="lbl">total items</span></div>
+      <div class="stat clickable" id="stat-done" onclick="filterStat('done')"><span class="num ok" id="s-mine">0</span><span class="lbl">done by ${esc(me)}</span></div>
+      <div class="stat clickable" id="stat-open" onclick="toggleOpenFilter()" title="Show only open items"><span class="num" id="s-open">0</span><span class="lbl" id="s-openlbl">open items</span></div>
+      <div class="stat clickable" id="stat-total" onclick="filterStat('all')"><span class="num" id="s-total">0</span><span class="lbl">total items</span></div>
       <button id="show-all-chip" onclick="toggleOpenFilter()" style="display:none;margin-top:10px;align-self:center;font:inherit;font-size:12.5px;font-weight:500;color:var(--accent);background:#fff;border:1px solid var(--accent);border-radius:6px;padding:5px 12px;cursor:pointer">Show all</button>
     </div>
     <main id="board"></main>
