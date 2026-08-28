@@ -327,13 +327,19 @@ function navTabs(active){
          (me ? `<a class="tab ${active==='resources'?'active':''}" href="#" onclick="showView('resources');return false">Resources</a>` : ``) +
          (me ? `<a class="tab cta" href="#" onclick="showView('feedback');return false">Submit a bug or feature request</a>` : ``);
 }
-function showView(v){
+function showView(v, skipPush){
+  if(!skipPush && location.hash !== "#"+v){
+    location.hash = "#"+v;   // push history entry; hashchange handler re-renders
+    return;
+  }
+  document.querySelectorAll(".dash-seg button").forEach(b=>b.classList.remove("on"));
   if(v==='resources') loadResources();
   else if(v==='feedback') loadFeedback();
   else if(v==='actions') load();
   else loadDashboard();
   window.scrollTo(0,0);
 }
+window.addEventListener("hashchange", ()=>{ const v=(location.hash||"#dashboard").slice(1); showView(v, true); });
 </script>
 
 <div id="app">
@@ -460,7 +466,8 @@ async function loadDashboard(){
     return new Date(+m[1],+m[2]-1,+m[3]) > today;
   }).sort((a,b)=>String(a.due).localeCompare(String(b.due)));
 
-  const dashScope = (window._dashScope = window._dashScope || "week"); // week | open | all
+  window._dashScope = window._dashScope || "week"; // week | open | all
+  const getScope = () => window._dashScope;
   const rowIt = (it, withWeek) => `<tr class="${token && it.done ? 'mine-done':''}" data-id="${esc(it.id)}">
       <td class="c-check"><div class="check" role="checkbox" aria-checked="${token && !!it.done}" tabindex="0"></div></td>
       <td class="c-item">
@@ -471,14 +478,14 @@ async function loadDashboard(){
     </tr>`;
 
   function dashList(){
-    if(dashScope==="week") return items.map(rowIt).join('');
-    if(dashScope==="open") return allItems.filter(it=>!(token&&it.done)).map(it=>rowIt(it,true)).join('');
+    if(getScope()==="week") return items.map(rowIt).join('');
+    if(getScope()==="open") return allItems.filter(it=>!(token&&it.done)).map(it=>rowIt(it,true)).join('');
     return allItems.map(rowIt).join('');
   }
   function dashScopeStats(){
     let list = items, doneN = done.length;
-    if(dashScope==="open"){ list = allItems.filter(it=>!(token&&it.done)); doneN = 0; }
-    if(dashScope==="all"){ list = allItems; doneN = allItems.filter(it=>token&&it.done).length; }
+    if(getScope()==="open"){ list = allItems.filter(it=>!(token&&it.done)); doneN = 0; }
+    if(getScope()==="all"){ list = allItems; doneN = allItems.filter(it=>token&&it.done).length; }
     const openN = list.length - doneN;
     const pct = list.length ? Math.round(doneN/list.length*100) : 0;
     return {total:list.length, done:doneN, open:openN, pct};
@@ -500,7 +507,7 @@ async function loadDashboard(){
 
   const segBtns = `<div class="dash-seg" role="tablist">
     ${[["week","This week"],["open","All open"],["all","All items →"]].map(([k,l])=>
-      `<button role="tab" aria-selected="${dashScope===k}" class="${dashScope===k?'on':''}" onclick="setDashScope('${k}')">${l}</button>`).join('')}
+      `<button role="tab" aria-selected="${getScope()===k}" class="${getScope()===k?'on':''}" onclick="setDashScope('${k}')">${l}</button>`).join('')}
   </div>`;
   window.setDashScope = k => {
     if(k==="all"){ showView('actions'); return; }
@@ -779,7 +786,10 @@ async function submitFeedback(){
   sel.insertAdjacentHTML("beforeend","<option>Other…</option>");
   sel.addEventListener("change",()=>{ if(sel.value==="Other…"){ const v=prompt("Company name:"); if(v){ const o=document.createElement("option"); o.textContent=v; sel.appendChild(o); o.selected=true; } } });
   sel.value = me || sel.value;
-  if(me && token) loadDashboard();
+  if(me && token){
+    const v = (location.hash||"#dashboard").slice(1);
+    showView(["dashboard","actions","resources","feedback"].includes(v)?v:"dashboard", true);
+  }
 })();
 </script>
 </body>
