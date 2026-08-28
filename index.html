@@ -331,14 +331,19 @@ function prettyUrl(u){
   try{ const h=new URL(u).hostname.replace(/^www\./,''); const seg=new URL(u).pathname.split('/').filter(Boolean); return seg.length? seg[seg.length-1].slice(0,42) : h; }catch(e){ return u; }
 }
 function linkify(s){
-  let t = esc(s);
-  // explicit [label](url)
-  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  // bare urls -> label from url; protect hrefs already emitted inside anchors
-  t = t.replace(/href="([^"]*)"/g, (m)=>'\x01'+m+'\x01');
-  t = t.replace(/(https?:\/\/[^\s<]+)/g, (u)=>'<a href="'+u+'" target="_blank" rel="noopener">'+esc(prettyUrl(u))+'</a>');
-  t = t.replace(/\x01(href="[^"]*")\x01/g, '$1');
-  return t;
+  const t = esc(s);
+  const out = [];
+  // tokenize: pull out markdown links first, then bare urls, emit text between
+  const re = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)|(https?:\/\/[^\s<]+)/g;
+  let last = 0, m;
+  while ((m = re.exec(t)) !== null) {
+    out.push(t.slice(last, m.index));
+    if (m[2]) out.push('<a href="'+m[2]+'" target="_blank" rel="noopener">'+m[1]+'</a>');
+    else out.push('<a href="'+m[3]+'" target="_blank" rel="noopener">'+esc(prettyUrl(m[3]))+'</a>');
+    last = re.lastIndex;
+  }
+  out.push(t.slice(last));
+  return out.join('');
 }
 
 async function doLogin(){
