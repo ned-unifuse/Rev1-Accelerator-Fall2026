@@ -212,8 +212,11 @@
   .dash-wk { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-4); margin-bottom: 2px; }
   .dash-dl-row { display: flex; align-items: baseline; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border-subtle); }
   .dash-dl-row:last-child { border-bottom: none; }
-  .dash-dl-row.done .dash-dl-what { color: var(--text-4); text-decoration: line-through; }
-  .dash-dl-row.done .dash-dl-when { color: var(--text-4); font-weight: 500; }
+  .dash-dl-row.tone-past .dash-dl-when, .dash-dl-row.tone-past .dash-dl-what { color: var(--alert); }
+  .dash-dl-row.tone-past .dash-dl-when { font-weight: 600; }
+  .dash-dl-row.tone-tmrw { background: #fdf6e3; }
+  .dash-dl-row.tone-tmrw .dash-dl-when { color: var(--warn); font-weight: 600; }
+  .dash-dl-row.tone-future .dash-dl-when { color: var(--ok); font-weight: 600; }
   .dash-dl-when { flex: 0 0 92px; font-size: 12px; font-weight: 600; color: var(--text-2); }
   .dash-dl-when.urgent { color: var(--alert); }
   .dash-dl-what { font-size: 13.5px; color: var(--text); letter-spacing: -0.005em; }
@@ -585,9 +588,9 @@ async function loadDashboard(){
                 const d = new Date(+m[1],+m[2]-1,+m[3]);
                 const days = Math.round((d - new Date().setHours(0,0,0,0))/864e5);
                 const when = days===0 ? 'today' : days===1 ? 'tomorrow' : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+fmtDate(it.due).slice(0,5);
-                const doneAny = !!(it.done_count !== undefined ? it.done_count>0 : it.done);
-                return `<div class="dash-dl-row${doneAny?' done':''}">
-                  <span class="dash-dl-when ${days<=1 && !doneAny ?'urgent':''}">${when}</span>
+                const tone = days<0 ? 'past' : days===1 ? 'tmrw' : 'future';
+                return `<div class="dash-dl-row tone-${tone}">
+                  <span class="dash-dl-when">${when}</span>
                   <span class="dash-dl-what">${esc(it.title)}</span>
                 </div>`;}).join('')}</div>`;
             })()}
