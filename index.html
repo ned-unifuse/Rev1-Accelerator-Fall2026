@@ -198,6 +198,7 @@
   }
   .dash-seg button:hover { color: var(--text); }
   .dash-seg button.on { background: #fff; color: var(--ok); font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--ok); }
+  .dash-wk { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-4); margin-bottom: 2px; }
 
   /* Resources page */
   .res-section { margin-bottom: 14px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
@@ -460,9 +461,10 @@ async function loadDashboard(){
   }).sort((a,b)=>String(a.due).localeCompare(String(b.due)));
 
   const dashScope = (window._dashScope = window._dashScope || "week"); // week | open | all
-  const rowIt = it => `<tr class="${token && it.done ? 'mine-done':''}" data-id="${esc(it.id)}">
+  const rowIt = (it, withWeek) => `<tr class="${token && it.done ? 'mine-done':''}" data-id="${esc(it.id)}">
       <td class="c-check"><div class="check" role="checkbox" aria-checked="${token && !!it.done}" tabindex="0"></div></td>
       <td class="c-item">
+        ${withWeek && it._wk ? `<div class="dash-wk">${esc(it._wk)}</div>` : ''}
         <div class="title">${esc(it.title)}</div>
         ${it.due?`<span class="due ${dueClass(it.due)}" style="display:block;margin-top:4px">${esc(fmtDate(it.due))}</span>`:''}
       </td>
@@ -470,7 +472,7 @@ async function loadDashboard(){
 
   function dashList(){
     if(dashScope==="week") return items.map(rowIt).join('');
-    if(dashScope==="open") return allItems.filter(it=>!(token&&it.done)).map(rowIt).join('');
+    if(dashScope==="open") return allItems.filter(it=>!(token&&it.done)).map(it=>rowIt(it,true)).join('');
     return allItems.map(rowIt).join('');
   }
   function dashScopeStats(){
@@ -484,7 +486,11 @@ async function loadDashboard(){
   function renderDashList(){
     const st = dashScopeStats();
     const tbl = document.getElementById("dash-list");
-    if(tbl) tbl.innerHTML = dashList() || `<tr><td class="c-item"><div class="empty" style="padding:24px 0">Nothing here - all clear.</div></td></tr>`;
+    if(tbl){
+      const list = dashList();
+      if(!list) tbl.innerHTML = `<tr><td class="c-item"><div class="dash-alldone">🎉 You're all caught up - nothing outstanding.</div></td></tr>`;
+      else tbl.innerHTML = list;
+    }
     const fill = document.querySelector(".dash-progress-fill"); if(fill) fill.style.width = st.pct+"%";
     const lbl = document.getElementById("dash-pct"); if(lbl) lbl.textContent = st.pct+"% complete";
     document.getElementById("s-done").textContent = st.done;
@@ -493,12 +499,14 @@ async function loadDashboard(){
   }
 
   const segBtns = `<div class="dash-seg" role="tablist">
-    ${[["week","This week"],["open","All open"],["all","Everything"]].map(([k,l])=>
+    ${[["week","This week"],["open","All open"],["all","All items →"]].map(([k,l])=>
       `<button role="tab" aria-selected="${dashScope===k}" class="${dashScope===k?'on':''}" onclick="setDashScope('${k}')">${l}</button>`).join('')}
   </div>`;
   window.setDashScope = k => {
+    if(k==="all"){ showView('actions'); return; }
     window._dashScope = k;
-    document.querySelectorAll(".dash-seg button").forEach(b=>b.classList.toggle("on", b.textContent===(k==="week"?"This week":k==="open"?"All open":"Everything")));
+    const labels = {week:"This week", open:"All open", all:"All items →"};
+    document.querySelectorAll(".dash-seg button").forEach(b=>b.classList.toggle("on", b.textContent===labels[k]));
     document.querySelectorAll(".dash-seg button").forEach(b=>b.setAttribute("aria-selected", b.classList.contains("on")));
     renderDashList();
   };
@@ -565,7 +573,17 @@ async function load(){
   const app = document.getElementById("app");
   const nu = document.getElementById("nav-user");
   nu.innerHTML = navTabs('actions') + `<span class="user">Signed in as <b>${esc(me)}</b></span><button onclick="logout()">Sign out</button>`;
-  let mineDone=0, total=0;
+  let mineDone=0, total=0, mineOpen=0;
+  const openFilter = { on: false };
+  window.toggleOpenFilter = () => {
+    openFilter.on = !openFilter.on;
+    document.getElementById("s-openlbl").textContent = openFilter.on ? "open items (filtered)" : "open items";
+    document.querySelectorAll(".week").forEach(div=>{
+      div.querySelectorAll("tbody tr").forEach(tr=>{
+        tr.style.display = (openFilter.on && tr.classList.contains("mine-done")) ? "none" : "";
+      });
+    });
+  };
   app.innerHTML = `<div class="wrap">
     <section class="hero">
       <h1>Action items, <em>tracked together.</em></h1>
@@ -573,6 +591,7 @@ async function load(){
     </section>
     <div class="stats">
       <div class="stat"><span class="num ok" id="s-mine">0</span><span class="lbl">done by ${esc(me)}</span></div>
+      <div class="stat" style="cursor:pointer" onclick="toggleOpenFilter()" title="Click to show only open items"><span class="num" id="s-open">0</span><span class="lbl" id="s-openlbl">open items</span></div>
       <div class="stat"><span class="num" id="s-total">0</span><span class="lbl">total items</span></div>
     </div>
     <main id="board"></main>
@@ -587,7 +606,7 @@ async function load(){
     let rows = (w.items||[]).map(it=>{
       total++;
       const mine = token ? !!it.done : false;
-      if(mine) mineDone++;
+      if(mine) mineDone++; else if(token) mineOpen++;
       return `<tr class="${mine?'mine-done':''}" data-id="${esc(it.id)}">
         <td class="c-check"><div class="check" role="checkbox" aria-checked="${mine}" tabindex="0" title="${mine?'Mark not done':'Mark done for '+esc(me)}"></div></td>
         <td class="c-item">
@@ -620,6 +639,7 @@ async function load(){
     });
   });
   document.getElementById("s-mine").textContent = mineDone;
+  document.getElementById("s-open").textContent = token ? mineOpen : (total - mineDone);
   document.getElementById("s-total").textContent = total;
 }
 
