@@ -327,7 +327,19 @@ function cleanSource(src){ return String(src??"").replace(/^Email:\s*"?(Fwd:\s*)
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function fmtDate(s){if(!s)return'';const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})/);return m?`${m[2]}/${m[3]}/${m[1]}`:String(s);}
 function dueClass(d){if(!d)return'';const m=d.match(/(\d{4})-(\d{2})-(\d{2})/);if(!m)return'';const days=(new Date(+m[1],+m[2]-1,+m[3])-new Date())/864e5;return days<0?'overdue':days<3?'soon':'';}
-function linkify(s){return esc(s).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');}
+function prettyUrl(u){
+  try{ const h=new URL(u).hostname.replace(/^www\./,''); const seg=new URL(u).pathname.split('/').filter(Boolean); return seg.length? seg[seg.length-1].slice(0,42) : h; }catch(e){ return u; }
+}
+function linkify(s){
+  let t = esc(s);
+  // explicit [label](url)
+  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  // bare urls -> label from url; protect hrefs already emitted inside anchors
+  t = t.replace(/href="([^"]*)"/g, (m)=>'\x01'+m+'\x01');
+  t = t.replace(/(https?:\/\/[^\s<]+)/g, (u)=>'<a href="'+u+'" target="_blank" rel="noopener">'+esc(prettyUrl(u))+'</a>');
+  t = t.replace(/\x01(href="[^"]*")\x01/g, '$1');
+  return t;
+}
 
 async function doLogin(){
   const company = document.getElementById("company").value;
@@ -387,7 +399,7 @@ async function load(){
         <td class="c-check"><div class="check" role="checkbox" aria-checked="${mine}" tabindex="0" title="${mine?'Mark not done':'Mark done for '+esc(me)}"></div></td>
         <td class="c-item">
           <div class="title">${esc(it.title)}</div>
-          ${it.detail?`<div class="detail">${linkify(it.detail)}</div>`:''}
+          ${it.detail?`<div class="detail">${linkify(it.detail).replaceAll('\n','<br>')}</div>`:''}
           ${it.source_quote?`<div class="quote">"${esc(it.source_quote)}"</div>`:''}
           ${it.source?`<div class="src">${esc(it.source)}</div>`:''}
           <span class="due ${dueClass(it.due)}" style="display:none">${esc(fmtDate(it.due))}</span>
