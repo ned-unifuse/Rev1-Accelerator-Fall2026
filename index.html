@@ -341,8 +341,13 @@ async function toggle(id){
 }
 
 async function load(){
-  const r = await fetch(API+"/weeks-mine",{cache:"no-store",headers:token?{"Authorization":"Bearer "+token}:{}}).catch(()=>null)
-           || await fetch(API+"/weeks",{cache:"no-store"});
+  let r = null;
+  if (token) {
+    try { r = await fetch(API+"/weeks-mine",{cache:"no-store",headers:{"Authorization":"Bearer "+token}}); } catch(e){}
+    if (!r || !r.ok) { logout(); return; }
+  } else {
+    r = await fetch(API+"/weeks",{cache:"no-store"});
+  }
   const data = await r.json();
   const weeks = data.weeks||[];
   const app = document.getElementById("app");
