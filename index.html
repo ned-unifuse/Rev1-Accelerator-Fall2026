@@ -88,6 +88,8 @@
     border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle);
     padding: 14px 0; margin-bottom: 28px;
   }
+  .stats.plain { gap: 40px; }
+  .stats.plain .stat { padding: 0; border: none; background: none; }
   .stat {
     display: flex; align-items: baseline; gap: 8px;
     padding: 8px 14px; border-radius: 8px;
@@ -533,7 +535,7 @@ async function loadDashboard(){
       <h1>Your week at a <em>glance.</em></h1>
       <p>${esc(latest.label || latest.subject || 'Latest digest')} · ${esc(fmtDate(latest.date))}</p>
     </section>
-    <div class="stats">
+    <div class="stats plain">
       <div class="stat"><span class="num ok" id="s-done">${st0.done}</span><span class="lbl">done</span></div>
       <div class="stat"><span class="num" id="s-open">${st0.open}</span><span class="lbl">still open</span></div>
       <div class="stat"><span class="num" id="s-total">${st0.total}</span><span class="lbl">total</span></div>
