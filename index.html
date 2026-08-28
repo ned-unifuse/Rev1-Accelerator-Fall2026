@@ -394,8 +394,12 @@ async function loadDashboard(){
   if (token) {
     try {
       const r = await fetch(API+"/weeks-mine",{cache:"no-store",headers:{"Authorization":"Bearer "+token}});
-      if(r.ok) data = await r.json(); else { logout(); return; }
-    } catch(e){}
+      if(r.status===401){ logout(); return; }
+      if(r.ok) data = await r.json();
+      else data = await (await fetch(API+"/weeks",{cache:"no-store"})).json();
+    } catch(e){
+      try { data = await (await fetch(API+"/weeks",{cache:"no-store"})).json(); } catch(e2){}
+    }
   }
   if(!data){
     try { data = await (await fetch(API+"/weeks",{cache:"no-store"})).json(); } catch(e){}
