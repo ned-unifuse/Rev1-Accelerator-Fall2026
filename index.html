@@ -212,6 +212,8 @@
   .dash-wk { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-4); margin-bottom: 2px; }
   .dash-dl-row { display: flex; align-items: baseline; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border-subtle); }
   .dash-dl-row:last-child { border-bottom: none; }
+  .dash-dl-row.done .dash-dl-what { color: var(--text-4); text-decoration: line-through; }
+  .dash-dl-row.done .dash-dl-when { color: var(--text-4); font-weight: 500; }
   .dash-dl-when { flex: 0 0 92px; font-size: 12px; font-weight: 600; color: var(--text-2); }
   .dash-dl-when.urgent { color: var(--alert); }
   .dash-dl-what { font-size: 13.5px; color: var(--text); letter-spacing: -0.005em; }
@@ -463,15 +465,18 @@ async function loadDashboard(){
   const pct = items.length ? Math.round(done.length/items.length*100) : 0;
 
   // key resources: pick curated labels first, then fill from categories
-  const curLabels = ["Program Box Folder (all participant files)","Nexudus","Milestone","Onboarding"];
+  const curLabels = ["Upload:","Program Box Folder (all participant files)","Milestone","Onboarding","Nexudus"];
   const pool = [];
-  ["program_links","uploads","forms"].forEach(k=>{ if(R && R[k]) pool.push(...R[k].map((it,i)=>({...it,_cat:k}))); });
+  ["uploads","program_links","forms"].forEach(k=>{ if(R && R[k]) pool.push(...R[k].map((it,i)=>({...it,_cat:k}))); });
   const picked = [], seen = new Set();
   curLabels.forEach(cl=>{
-    const hit = pool.find(it=>it.label && it.label.toLowerCase().includes(cl.toLowerCase()) && !seen.has(it.label));
-    if(hit){ picked.push(hit); seen.add(hit.label); }
+    if(cl==="Upload:") pool.forEach(it=>{ if(/^Upload/i.test(it.label) && !seen.has(it.label)){ picked.push(it); seen.add(it.label); } });
+    else {
+      const hit = pool.find(it=>it.label && it.label.toLowerCase().includes(cl.toLowerCase()) && !seen.has(it.label));
+      if(hit){ picked.push(hit); seen.add(hit.label); }
+    }
   });
-  pool.forEach(it=>{ if(picked.length<4 && !seen.has(it.label)){ picked.push(it); seen.add(it.label); } });
+  pool.forEach(it=>{ if(picked.length<6 && !seen.has(it.label)){ picked.push(it); seen.add(it.label); } });
 
   // upcoming: open items across all weeks with a future due date
   const today = new Date(); today.setHours(0,0,0,0);
@@ -566,7 +571,6 @@ async function loadDashboard(){
             ${(()=>{
               const wk = latestWeekWindow();
               const dl = allItems.filter(it=>{
-                if(token && it.done) return false;
                 const m = String(it.due||'').match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return false;
                 const d = new Date(+m[1],+m[2]-1,+m[3]);
                 return d >= wk.start && d <= wk.end;
@@ -577,8 +581,9 @@ async function loadDashboard(){
                 const d = new Date(+m[1],+m[2]-1,+m[3]);
                 const days = Math.round((d - new Date().setHours(0,0,0,0))/864e5);
                 const when = days===0 ? 'today' : days===1 ? 'tomorrow' : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]+' '+fmtDate(it.due).slice(0,5);
-                return `<div class="dash-dl-row">
-                  <span class="dash-dl-when ${days<=1?'urgent':''}">${when}</span>
+                const doneCls = (token && it.done) ? ' done' : '';
+                return `<div class="dash-dl-row${doneCls}">
+                  <span class="dash-dl-when ${days<=1 && !(token && it.done)?'urgent':''}">${when}</span>
                   <span class="dash-dl-what">${esc(it.title)}</span>
                 </div>`;}).join('')}</div>`;
             })()}
