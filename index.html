@@ -58,12 +58,13 @@
     color: var(--text-3); text-decoration: none; padding: 4px 8px; border-radius: 6px;
   }
   .nav-right a.tab:hover { color: var(--text); background: var(--surface); }
-  .nav-right a.tab.active { color: var(--accent-teal); background: var(--surface); font-weight: 600; }
+  .nav-right a.tab { white-space: nowrap; }
+  .nav-right a.tab.active { color: var(--ok); background: #fff; font-weight: 600; box-shadow: inset 0 0 0 1.5px var(--ok); border-radius: 6px; }
   .nav-right a.tab.cta {
-    color: var(--accent-teal); background: var(--surface); font-weight: 500;
-    padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border);
+    color: #fff; background: var(--accent); font-weight: 500;
+    padding: 6px 12px; border-radius: 6px; border: none; white-space: nowrap;
   }
-  .nav-right a.tab.cta:hover { background: #eceee9; color: #00445a; border-color: #cf9fb0; }
+  .nav-right a.tab.cta:hover { background: var(--accent-hover); color: #fff; }
   .nav-right .user { color: var(--text-3); }
   .nav-right .user b { color: var(--text); font-weight: 600; }
   .nav-right button {
@@ -298,7 +299,7 @@
 
 <nav>
   <div class="wrap">
-    <div class="brand"><img class="brand-logo" src="rev1-logo.png" alt="Rev1 Ventures" onerror="this.style.display='none'"> Customer to Capital</div>
+    <div class="brand"><a href="#" onclick="showView('dashboard');return false" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;cursor:pointer"><img class="brand-logo" src="rev1-logo.png" alt="Rev1 Ventures" onerror="this.style.display='none'"> Customer to Capital</a></div>
     <div class="nav-right" id="nav-user"></div>
   </div>
 </nav>
