@@ -585,6 +585,8 @@ async function load(){
   window.toggleOpenFilter = () => {
     openFilter.on = !openFilter.on;
     document.getElementById("s-openlbl").textContent = openFilter.on ? "open items (filtered)" : "open items";
+    const chip = document.getElementById("show-all-chip");
+    if(chip) chip.style.display = openFilter.on ? "inline-flex" : "none";
     document.querySelectorAll(".week").forEach(div=>{
       div.querySelectorAll("tbody tr").forEach(tr=>{
         tr.style.display = (openFilter.on && tr.classList.contains("mine-done")) ? "none" : "";
@@ -600,6 +602,7 @@ async function load(){
       <div class="stat"><span class="num ok" id="s-mine">0</span><span class="lbl">done by ${esc(me)}</span></div>
       <div class="stat" style="cursor:pointer" onclick="toggleOpenFilter()" title="Click to show only open items"><span class="num" id="s-open">0</span><span class="lbl" id="s-openlbl">open items</span></div>
       <div class="stat"><span class="num" id="s-total">0</span><span class="lbl">total items</span></div>
+      <button id="show-all-chip" onclick="toggleOpenFilter()" style="display:none;margin-top:10px;align-self:center;font:inherit;font-size:12.5px;font-weight:500;color:var(--accent);background:#fff;border:1px solid var(--accent);border-radius:6px;padding:5px 12px;cursor:pointer">Show all</button>
     </div>
     <main id="board"></main>
   </div>`;
