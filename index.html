@@ -447,6 +447,9 @@ async function loadDashboard(){
     try { data = await (await fetch(API+"/weeks",{cache:"no-store"})).json(); } catch(e){}
   }
   try { R = await (await fetch(API+"/resources",{cache:"no-store"})).json(); } catch(e){}
+  // program-wide view for deadlines box: always fetch public aggregate state
+  let pubItems = null;
+  try { const pd = await (await fetch(API+"/weeks",{cache:"no-store"})).json(); pubItems = (pd.weeks||[]).flatMap(w=>w.items||[]); } catch(e){}
   const weeks = (data && data.weeks) || [];
   const app = document.getElementById("app");
   app.dataset.view = 'dashboard';
@@ -570,7 +573,8 @@ async function loadDashboard(){
             <div class="dash-head"><h2>Deadlines this week</h2></div>
             ${(()=>{
               const wk = latestWeekWindow();
-              const dl = allItems.filter(it=>{
+              const src = pubItems || allItems;
+              const dl = src.filter(it=>{
                 const m = String(it.due||'').match(/(\d{4})-(\d{2})-(\d{2})/); if(!m) return false;
                 const d = new Date(+m[1],+m[2]-1,+m[3]);
                 return d >= wk.start && d <= wk.end;
