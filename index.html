@@ -427,10 +427,12 @@ async function doLogin(){
 function logout(){ sessionStorage.clear(); me=null; token=null; location.reload(); }
 async function toggle(id){
   if(!token) return;
+  const y = window.scrollY; // keep the user where they are; toggling must not navigate
   const r = await fetch(API+"/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token,item_id:id})});
   if(r.status===401){ logout(); return; }
   const a = document.getElementById("app");
-  if(a.dataset.view === 'dashboard'){ loadDashboard(); } else { load(); }
+  if(a.dataset.view === 'dashboard'){ await loadDashboard(); } else { await load(); }
+  window.scrollTo(0, y);
 }
 
 async function loadDashboard(){
@@ -635,6 +637,7 @@ async function load(){
   const data = await r.json();
   const weeks = data.weeks||[];
   const app = document.getElementById("app");
+  app.dataset.view = 'actions';
   const nu = document.getElementById("nav-user");
   nu.innerHTML = navTabs('actions') + `<span class="user">Signed in as <b>${esc(me)}</b></span><button onclick="logout()">Sign out</button>`;
   let mineDone=0, total=0, mineOpen=0;
